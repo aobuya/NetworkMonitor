@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:layout_margin="16dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="4dp"
+        app:cardBackgroundColor="#FFFFFF">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/wifiSignalStrengthTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Wi-Fi Signal Strength: -"
+                android:textSize="18sp"
+                android:layout_marginTop="16dp"
+                android:layout_centerInParent="true" />
+
+            <TextView
+                android:id="@+id/mobileSignalStrengthTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Mobile Signal Strength: -"
+                android:textSize="18sp"
+                android:layout_below="@id/wifiSignalStrengthTextView"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="16dp" />
+
+            <TextView
+                android:id="@+id/signalStrengthExplanationTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="-120 and below: Poor signal\n-106 to -120: Fair signal\n-91 to -105: Good signal\nAbove -90: Excellent signal"
+                android:layout_marginTop="16dp" />
+
+        </LinearLayout>
+
+    </androidx.cardview.widget.CardView>
+
+
+    <ProgressBar
+        android:id="@+id/progress_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:visibility="invisible" />
+
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/checkSignalButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_margin="20dp"
+            android:layout_marginBottom="40dp"
+            android:layout_height="wrap_content"
+            android:text="Check Signal"
+            android:layout_centerHorizontal="true"
+            />
+
+        <Button
+            android:id="@+id/signOut"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_margin="20dp"
+            android:layout_height="wrap_content"
+            android:text="SignOut"
+            android:layout_centerHorizontal="true"
+            />
+    </LinearLayout>
+
+</RelativeLayout>

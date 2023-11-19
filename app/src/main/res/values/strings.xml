@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Network Monitor</string>
+    <string name="Register">Register</string>
+    <string name="cn_password">Password</string>
+    <string name="e_mail">Email</string>
+    <string name="reg_tag">Register here</string>
+    <string name="duka_reg">Type Duka or Warehouse name</string>
+</resources>
