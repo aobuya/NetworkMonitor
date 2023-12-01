@@ -57,6 +57,10 @@ class MainActivity : ComponentActivity() {
         signoutButton = findViewById(R.id.signOut)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
+        checkSignalButton.setOnClickListener{
+            initializeSignalStrengthListener()
+        }
+
         signoutButton.setOnClickListener{
             auth.signOut()
             val intent = Intent(this, SignIn::class.java)
@@ -113,17 +117,19 @@ class MainActivity : ComponentActivity() {
         }
         return Pair(wifiDescription, wifiDbm)
     }
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun getCellularSignalDetails(signalStrength: SignalStrength): Pair<String, Int> {
-        val dbm = getSignalStrengthDbm(signalStrength)
-        val signalLevel = signalStrength.level // API level 23 and above
-        val description = when (signalLevel) {
-            4 -> "Excellent signal"
-            3 -> "Good signal"
-            2 -> "Fair signal"
-            1 -> "Poor signal"
-            else -> "Very poor signal"
+        val cellSignalStrengths = signalStrength.getCellSignalStrengths(CellSignalStrengthLte::class.java)
+        val dBm = cellSignalStrengths?.getOrNull(0)?.rsrp ?: -1
+
+        val description = when {
+            dBm > -90 -> "Excellent signal"
+            dBm > -105 -> "Good signal"
+            dBm > -120 -> "Fair signal"
+            else -> "Poor signal"
         }
-        return Pair(description, dbm)
+
+        return Pair(description, dBm)
     }
     private fun getSignalStrengthDbm(signalStrength: SignalStrength): Int {
         // Use reflection to access dbm value
