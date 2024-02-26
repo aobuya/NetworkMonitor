@@ -1,13 +1,14 @@
 {
   "project_info": {
-    "project_number": "735298304774",
-    "project_id": "network-2024",
-    "storage_bucket": "network-2024.appspot.com"
+    "project_number": "219062892536",
+    "firebase_url": "https://network-monitor-7d93b-default-rtdb.firebaseio.com",
+    "project_id": "network-monitor-7d93b",
+    "storage_bucket": "network-monitor-7d93b.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:735298304774:android:2d125759b7bec8410afc87",
+        "mobilesdk_app_id": "1:219062892536:android:7af77189d1ffb49f80c80d",
         "android_client_info": {
           "package_name": "com.broadcast.networkmonitor"
         }
@@ -15,7 +16,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAnBgqAa0wW5iOhYUe3Snw2LCGfjZg4ERQ"
+          "current_key": "AIzaSyCZNKO0FQZU9qgTX-aZTXqpdEoL_ZnANF8"
         }
       ],
       "services": {

@@ -93,8 +93,10 @@ class MainActivity : ComponentActivity() {
                 val wifiSignalDetails = getWifiSignalDetails(wifiManager)
                 if (mobileSignalDetails != null) {
                     updateUI(mobileSignalDetails, wifiSignalDetails)
+
                 }
                 mobileSignalDetails?.let { storeSignalStrength(wifiSignalDetails, it) }
+
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
