@@ -29,12 +29,12 @@ import com.google.android.gms.location.LocationServices
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
+import java.io.Serializable
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.HashMap
 
 class MainActivity : ComponentActivity() {
-
-
     private lateinit var checkSignalButton: Button
     private lateinit var progress: ProgressBar
     private lateinit var signalStrengthRef: DatabaseReference
@@ -48,9 +48,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_signal_strength)
-
         auth = FirebaseAuth.getInstance()
-
         // Initialize views
         wifiSignalStrengthTextView = findViewById(R.id.wifiSignalStrengthTextView)
         mobileSignalStrengthTextView = findViewById(R.id.mobileSignalStrengthTextView)
@@ -59,13 +57,8 @@ class MainActivity : ComponentActivity() {
         signoutButton = findViewById(R.id.signOut)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-
-
-
-
-        checkSignalButton.setOnClickListener {
-            checkSignalStrength()
-
+        checkSignalButton.setOnClickListener{
+            initializeSignalStrengthListener()
         }
 
         signoutButton.setOnClickListener{
@@ -74,11 +67,8 @@ class MainActivity : ComponentActivity() {
             startActivity(intent)
             finish()
         }
-
-
         val database = FirebaseDatabase.getInstance()
         signalStrengthRef = database.reference.child("signalStrength")
-
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
                 this,
@@ -89,63 +79,69 @@ class MainActivity : ComponentActivity() {
             initializeSignalStrengthListener()
         }
     }
-
     private fun initializeSignalStrengthListener() {
-        val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-
+        val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        if (telephonyManager == null || wifiManager == null) {
+            Toast.makeText(this, "Telephony or WiFi service not available", Toast.LENGTH_SHORT).show()
+            return
+        }
         val phoneStateListener = object : PhoneStateListener() {
-            @RequiresApi(Build.VERSION_CODES.Q)
             override fun onSignalStrengthsChanged(signalStrength: SignalStrength?) {
                 super.onSignalStrengthsChanged(signalStrength)
-
-                // Get mobile signal details
                 val mobileSignalDetails = signalStrength?.let { getCellularSignalDetails(it) }
-
-                // Get WiFi signal details
-                val wifiInfo = wifiManager.connectionInfo
-                val wifiDbm = wifiInfo.rssi
-                val wifiDescription = when {
-                    wifiDbm > -50 -> "Excellent signal"
-                    wifiDbm > -70 -> "Good signal"
-                    wifiDbm > -90 -> "Fair signal"
-                    else -> "Poor signal"
-                }
-                val wifiSignalDetails = Pair(wifiDescription, wifiDbm)
-
-                // Determine the signal status for mobile and Wi-Fi
-                val mobileSignalStatus = if (mobileSignalDetails != null) {
-                    "Mobile Signal Level: ${mobileSignalDetails.first} (dBm: ${mobileSignalDetails.second})"
-                } else {
-                    "No Data Connected"
-                }
-
-                val wifiSignalStatus = if (isConnectedToWiFi()) {
-                    "Wi-Fi Signal Level: ${wifiSignalDetails.first} (RSSI: ${wifiSignalDetails.second} dBm)"
-                } else {
-                    "No Wi-Fi Connection"
-                }
-
-                // Display the signal statuses
-                wifiSignalStrengthTextView.text = wifiSignalStatus
-                mobileSignalStrengthTextView.text = mobileSignalStatus
-
+                val wifiSignalDetails = getWifiSignalDetails(wifiManager)
                 if (mobileSignalDetails != null) {
-                    storeSignalStrength(wifiSignalDetails, mobileSignalDetails)
-                } else {
-                    Toast.makeText(this@MainActivity, "No signal", Toast.LENGTH_SHORT).show()
+                    updateUI(mobileSignalDetails, wifiSignalDetails)
+
                 }
+                mobileSignalDetails?.let { storeSignalStrength(wifiSignalDetails, it) }
+
             }
         }
-
-        telephonyManager.listen(
-            phoneStateListener,
-            PhoneStateListener.LISTEN_SIGNAL_STRENGTHS
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            telephonyManager.listen(
+                phoneStateListener,
+                PhoneStateListener.LISTEN_SIGNAL_STRENGTHS
+            )
+        } else {
+            Toast.makeText(this, "This feature requires Android Q or later", Toast.LENGTH_SHORT).show()
+        }
     }
+    private fun getWifiSignalDetails(wifiManager: WifiManager): Pair<String, Int> {
+        val wifiInfo = wifiManager.connectionInfo
+        val wifiDbm = wifiInfo.rssi
+        val wifiDescription = when {
+            wifiDbm > -50 -> "Excellent signal"
+            wifiDbm > -70 -> "Good signal"
+            wifiDbm > -90 -> "Fair signal"
+            else -> "Poor signal"
+        }
+        return Pair(wifiDescription, wifiDbm)
+    }
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun getCellularSignalDetails(signalStrength: SignalStrength): Pair<String, Int> {
+        val cellSignalStrengths = signalStrength.getCellSignalStrengths(CellSignalStrengthLte::class.java)
+        val dBm = cellSignalStrengths?.getOrNull(0)?.rsrp ?: -1
 
+        val description = when {
+            dBm > -90 -> "Excellent signal"
+            dBm > -105 -> "Good signal"
+            dBm > -120 -> "Fair signal"
+            else -> "Poor signal"
+        }
 
-    //Get location lat and lan
+        return Pair(description, dBm)
+    }
+    private fun getSignalStrengthDbm(signalStrength: SignalStrength): Int {
+        // Use reflection to access dbm value
+        return try {
+            val method = signalStrength.javaClass.getMethod("getDbm")
+            method.invoke(signalStrength) as Int
+        } catch (e: Exception) {
+            -1
+        }
+    }
     @SuppressLint("MissingPermission")
     private fun getGPSLocation(callback: (latitude: Double, longitude: Double) -> Unit) {
         if (ActivityCompat.checkSelfPermission(
@@ -165,151 +161,59 @@ class MainActivity : ComponentActivity() {
             )
             return
         }
-
         fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
             location?.let {
                 callback(it.latitude, it.longitude)
             }
         }
     }
-
-    @RequiresApi(Build.VERSION_CODES.Q)
-    private fun getCellularSignalDetails(signalStrength: SignalStrength): Pair<String, Int> {
-        val cellSignalStrengths = signalStrength.getCellSignalStrengths(CellSignalStrengthLte::class.java)
-        val dBm = cellSignalStrengths?.getOrNull(0)?.rsrp ?: Int.MIN_VALUE
-
-        val description = when {
-            dBm > -65 -> "Excellent signal"
-            dBm > -75 -> "Good signal"
-            dBm > -90 -> "Fair signal"
-            dBm == Int.MIN_VALUE -> "Signal Strength Unavailable"
-            else -> "Poor signal"
-        }
-
-        return Pair(description, dBm)
-    }
-
-
-
     private fun getCurrentDateTime(): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         return sdf.format(Date())
     }
+    //add data to firebase
     private fun storeSignalStrength(wifiDetails: Pair<String, Int>, mobileDetails: Pair<String, Int>) {
         getGPSLocation { latitude, longitude ->
-            // Get the device's Android ID as the unique identifier
-            //val androidId = Secure.getString(contentResolver, Secure.ANDROID_ID)
             val user = FirebaseAuth.getInstance().currentUser
-            val androidId = user?.uid?:""
-
-            // val currentUser
-
+            val androidId = user?.uid ?: "NaN"
             val signalStrengthEntryRef = signalStrengthRef.child(androidId)
-
-            // Create a SignalStrength object to hold the data
-            val signalStrength = HashMap<String, Any>()
-
-            // WiFi Data
-            val wifiData = HashMap<String, Any>()
-            wifiData["SignalLevel"] = wifiDetails.first
-            wifiData["dBm"] = wifiDetails.second
-            signalStrength["WiFi"] = wifiData
-
-            // Mobile Data
-            val mobileData = HashMap<String, Any>()
-            mobileData["SignalLevel"] = mobileDetails.first
-            mobileData["dBm"] = mobileDetails.second
-            signalStrength["Mobile"] = mobileData
-
-            // Add the Android ID as a unique identifier for the device
+            val signalStrengths = hashMapOf(
+                "WiFi" to hashMapOf(
+                    "SignalLevel" to wifiDetails.first,
+                    "dBm" to wifiDetails.second
+                ),
+                "Mobile" to hashMapOf(
+                    "SignalLevel" to mobileDetails.first,
+                    "dBm" to mobileDetails.second
+                ),
+                "DateTime" to getCurrentDateTime(),
+                "Latitude" to latitude,
+                "Longitude" to longitude
+            )
             if (user != null) {
-                signalStrength["AndroidId"] = user.email!!
-            }
-
-
-            signalStrength["DateTime"] = getCurrentDateTime()
-            signalStrength["Latitude"] = latitude
-            signalStrength["Longitude"] = longitude
-
-            Log.d(TAG, "Updating Firebase with signal data")
-
-            // Set the data for the specified Android ID
-            signalStrengthEntryRef.setValue(signalStrength).addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    Log.d(TAG, "Update complete")
-                } else {
-                    Log.e(TAG, "Error updating data: ${task.exception?.message}")
+                user.email?.let {
+                    signalStrengths["AndroidId"] = it
                 }
             }
-
-            wifiSignalStrengthTextView.text = "WiFi Signal Level: ${wifiDetails.first} (dBm: ${wifiDetails.second})"
-            mobileSignalStrengthTextView.text = "Mobile Signal Level: ${mobileDetails.first} (dBm: ${mobileDetails.second})"
+            updateFirebase(signalStrengthEntryRef, signalStrengths)
+            updateUI(wifiDetails, mobileDetails)
         }
     }
-
-
-
-
-    private fun isConnectedToWiFi(): Boolean {
-        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val networkInfo = connectivityManager.activeNetworkInfo
-        return networkInfo != null && networkInfo.type == ConnectivityManager.TYPE_WIFI
+    private fun updateFirebase(signalStrengthEntryRef: DatabaseReference, signalStrengths: HashMap<String, Serializable>) {
+        signalStrengthEntryRef.setValue(signalStrengths).addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                Log.d(TAG, "Firebase update successful")
+            } else {
+                Log.e(TAG, "Error updating Firebase: ${task.exception?.message}")
+            }
+        }
     }
-
-
+    private fun updateUI(wifiDetails: Pair<String, Int>, mobileDetails: Pair<String, Int>) {
+        wifiSignalStrengthTextView.text = "WiFi Signal Level: ${wifiDetails.first} (dBm: ${wifiDetails.second})"
+        mobileSignalStrengthTextView.text = "Mobile Signal Level: ${mobileDetails.first} (dBm: ${mobileDetails.second})"
+    }
     @RequiresApi(Build.VERSION_CODES.Q)
-    private fun checkSignalStrength() {
-        progress.visibility = View.VISIBLE
 
-        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        val wifiInfo = wifiManager.connectionInfo
-        val wifiDbm = wifiInfo.rssi
-
-        val wifiDescription = when {
-            wifiDbm > -50 -> "Excellent signal"
-            wifiDbm > -70 -> "Good signal"
-            wifiDbm > -90 -> "Fair signal"
-            else -> "Poor signal"
-        }
-        val wifiSignalDetails = Pair(wifiDescription, wifiDbm)
-
-        val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        val signalStrength = telephonyManager.signalStrength
-        val mobileSignalDetails = signalStrength?.let { getCellularSignalDetails(it) }
-
-        wifiSignalStrengthTextView.text = "Wi-Fi Signal Level: ${wifiSignalDetails.first} (RSSI: ${wifiSignalDetails.second} dBm)"
-        mobileSignalStrengthTextView.text = "Mobile Signal Level: ${mobileSignalDetails?.first} (RSRP: ${mobileSignalDetails?.second} dBm)"
-
-        if (mobileSignalDetails != null) {
-            storeSignalStrength(wifiSignalDetails, mobileSignalDetails)
-        } else {
-            //
-        }
-
-        progress.visibility = View.INVISIBLE
-    }
-
-    @RequiresApi(Build.VERSION_CODES.Q)
-    private fun updateSignalStrengths() {
-        // For Wi-Fi (RSSI)
-        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        val wifiInfo = wifiManager.connectionInfo
-        val wifiDbm = wifiInfo.rssi
-
-        val wifiDescription = when {
-            wifiDbm > -50 -> "Excellent signal"
-            wifiDbm > -70 -> "Good signal"
-            wifiDbm > -90 -> "Fair signal"
-            else -> "Poor signal"
-        }
-        wifiSignalStrengthTextView.text = "Wi-Fi Signal Level: $wifiDescription (RSSI: $wifiDbm dBm)"
-
-        // For Mobile Data (RSRP)
-        val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        val signalStrength = telephonyManager.signalStrength
-        val mobileSignalDetails = signalStrength?.let { getCellularSignalDetails(it) }
-        mobileSignalStrengthTextView.text = "Mobile Signal Level: ${mobileSignalDetails?.first} (RSRP: ${mobileSignalDetails?.second} dBm)"
-    }
     override fun onRequestPermissionsResult(
         requestCode: Int, permissions: Array<String>, grantResults: IntArray
     ) {
@@ -325,10 +229,8 @@ class MainActivity : ComponentActivity() {
                 }
                 return
             }
-
         }
     }
-
     companion object {
         private const val REQUEST_PERMISSION = 1
     }
